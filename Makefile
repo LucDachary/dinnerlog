@@ -5,3 +5,6 @@ up:
 
 dbshell:
 	docker-compose exec db mariadb -u dbuser -pdbpassword dinnerlog
+
+clean:
+	docker-compose down -v --remove-orphans
