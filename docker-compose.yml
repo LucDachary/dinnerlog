@@ -1,0 +1,12 @@
+version: "3"
+services:
+  db:
+    image: mariadb:11.0.2-jammy
+    environment:
+      MYSQL_DATABASE: "dinnerlog"
+      MYSQL_USER: "dbuser"
+      MYSQL_PASSWORD: "dbpassword"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      MYSQL_ROOT_PASSWORD: "dev-db-root-password"
+    ports:
+      - 3306:3306
