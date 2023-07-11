@@ -1,4 +1,5 @@
-use cursive::views::{Button, LinearLayout, Panel, TextView};
+use cursive::align::HAlign;
+use cursive::views::{Button, DebugView, LinearLayout, ListView, Panel, TextView};
 use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
@@ -50,20 +51,21 @@ fn main() {
 
     siv.add_global_callback('q', |s| s.quit());
 
-    let mut vhappenings = LinearLayout::vertical();
+    let mut vhappenings = ListView::new();
     for hid in happening_ids {
-        vhappenings = vhappenings.child(TextView::new(format!(
-            "\u{201F}{}\u{201D} on {}",
-            hid.name,
-            hid.when.date()
-        )));
+        vhappenings.add_child(
+            format!("{} \u{2014}", hid.when.date()).as_str(),
+            TextView::new(format!("\u{201F}{}\u{201D}", hid.name).as_str()),
+        );
     }
 
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
         .child(Panel::new(vhappenings).title("Last happenings"))
         .child(TextView::new("Press 'q' to exit."))
-        .child(Button::new("Quit", |s| s.quit()));
+        .child(Button::new("Quit", |s| s.quit()))
+        // DEV
+        .child(DebugView::new());
 
     siv.add_layer(page);
     siv.run();
