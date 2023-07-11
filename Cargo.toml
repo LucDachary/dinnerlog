@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 cursive = "0.20.0"
 mysql = "24.0.0"
+time = { version = "0.3.23", features = ["macros"] }
 uuid = "1.4.0"

@@ -1,19 +1,19 @@
 use cursive::views::{Button, LinearLayout, Panel, TextView};
 use mysql::prelude::*;
 use mysql::Pool;
-use mysql::Value::Bytes;
+use mysql::Value;
+use time::macros::date;
+use time::Date;
+use time::PrimitiveDateTime;
 use uuid::Uuid;
 
 struct Happening {
     id: Uuid,
-    // TODO use datetime type?
-    date: String,
+    when: PrimitiveDateTime,
     name: String,
     comment: Option<String>,
-    // TODO use datetime type?
-    created_on: String,
-    // TODO use datetime type?
-    last_modified_on: String,
+    created_on: PrimitiveDateTime,
+    last_modified_on: PrimitiveDateTime,
 }
 
 fn main() {
@@ -28,16 +28,19 @@ fn main() {
         .expect("Cannot obtain a connection to the database.");
     // DEV
     let happening_ids = db_conn
-        .query_map::<(Vec<u8>, Vec<u8>), _, &str, Happening>(
-            "SELECT id, name FROM happening_happening ORDER BY created_on DESC LIMIT 0, 10",
-            |(id, name)| Happening {
+        .query_map(
+            "SELECT id, date, name, comment, created_on, last_modified_on
+            FROM happening_happening
+            ORDER BY created_on DESC
+            LIMIT 0, 10",
+            |(id, when, name, comment, created_on, lmo)| Happening {
                 id: Uuid::parse_str(String::from_utf8(id).expect("Cannot decode UTF8.").as_str())
                     .expect("Cannot decode UUID."),
-                date: String::new(),
-                name: String::from_utf8(name).expect("Cannot decode UTF8."),
-                comment: Some(String::new()),
-                created_on: String::new(),
-                last_modified_on: String::new(),
+                when,
+                name,
+                comment,
+                created_on: created_on,
+                last_modified_on: lmo,
             },
         )
         .expect("Cannot read the last happenings.");
@@ -49,7 +52,11 @@ fn main() {
 
     let mut vhappenings = LinearLayout::vertical();
     for hid in happening_ids {
-        vhappenings = vhappenings.child(TextView::new(format!("{}", hid.name)));
+        vhappenings = vhappenings.child(TextView::new(format!(
+            "\u{201F}{}\u{201D} on {}",
+            hid.name,
+            hid.when.date()
+        )));
     }
 
     let page = LinearLayout::vertical()
