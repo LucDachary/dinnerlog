@@ -1,5 +1,7 @@
 use cursive::align::HAlign;
-use cursive::views::{Button, DebugView, LinearLayout, ListView, Panel, TextView};
+use cursive::event;
+use cursive::menu;
+use cursive::views::{Button, DebugView, Dialog, LinearLayout, ListView, Panel, TextView};
 use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
@@ -62,11 +64,32 @@ fn main() {
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
         .child(Panel::new(vhappenings).title("Last happenings"))
-        .child(TextView::new("Press 'q' to exit."))
+        .child(TextView::new(
+            "Press 'q' to exit. Press 'F1' to select the menu bar.",
+        ))
         .child(Button::new("Quit", |s| s.quit()))
         // DEV
         .child(DebugView::new());
 
     siv.add_layer(page);
+
+    // Menu
+    siv.menubar()
+        .add_subtree(
+            "Happenings",
+            menu::Tree::new().leaf("New", |s| s.add_layer(Dialog::info("New happening!"))),
+        )
+        .add_subtree(
+            "Help",
+            menu::Tree::new().leaf("Shortcuts", |s| {
+                s.add_layer(Dialog::info(
+                    r"Press 'q' to exit. Press 'F1' to open the menu.",
+                ))
+            }),
+        );
+
+    siv.add_global_callback(event::Key::F1, |s| s.select_menubar());
+    siv.set_autohide_menu(false);
+
     siv.run();
 }
