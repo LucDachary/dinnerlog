@@ -1,7 +1,14 @@
 use cursive::align::HAlign;
 use cursive::event;
 use cursive::menu;
-use cursive::views::{Button, DebugView, Dialog, LinearLayout, ListView, Panel, TextView};
+use cursive::traits::*;
+use cursive::view::Offset;
+use cursive::views::{
+    Button, DebugView, Dialog, EditView, LayerPosition, LinearLayout, ListView, Panel, SelectView,
+    TextView,
+};
+use cursive::Cursive;
+use cursive::XY;
 use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
@@ -52,6 +59,7 @@ fn main() {
     let mut siv = cursive::default();
 
     siv.add_global_callback('q', |s| s.quit());
+    siv.add_global_callback('n', add_happening);
 
     let mut vhappenings = ListView::new();
     for hid in happening_ids {
@@ -71,7 +79,9 @@ fn main() {
         // DEV
         .child(DebugView::new());
 
-    siv.add_layer(page);
+    siv.add_fullscreen_layer(page);
+    // TODO center the layer
+    siv.reposition_layer(LayerPosition::FromBack(0), XY::center());
 
     // Menu
     siv.menubar()
@@ -92,4 +102,33 @@ fn main() {
     siv.set_autohide_menu(false);
 
     siv.run();
+}
+
+/// Open a dialog with a Happening form.
+fn add_happening(s: &mut Cursive) {
+    s.add_layer(
+        Dialog::around(
+            LinearLayout::vertical()
+                .child(TextView::new("Name"))
+                .child(EditView::new().max_content_width(100).with_name("h_name")),
+        )
+        .title("Add a happening")
+        .button("Add", |s| {
+            let name = s
+                .call_on_name("h_name", |view: &mut EditView| view.get_content())
+                .unwrap();
+            // TODO add other fields.
+            insert_happening(&name);
+
+            // TODO inform about the success
+            s.pop_layer();
+        })
+        .button("Cancel", |s| {
+            s.pop_layer();
+        }),
+    );
+}
+
+fn insert_happening(name: &str) {
+    // TODO make the SQL request
 }
