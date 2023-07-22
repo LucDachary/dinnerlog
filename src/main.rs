@@ -9,14 +9,17 @@ use cursive::views::{
 };
 use cursive::Cursive;
 use cursive::XY;
+use log::{debug, error, LevelFilter};
 use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
+use mysql::*;
 use time::macros::date;
 use time::Date;
 use time::PrimitiveDateTime;
 use uuid::Uuid;
-
+#[macro_use]
+extern crate lazy_static;
 struct Happening {
     id: Uuid,
     when: PrimitiveDateTime,
@@ -26,21 +29,26 @@ struct Happening {
     last_modified_on: PrimitiveDateTime,
 }
 
+// TODO get credentials from environment variables
+// This command assumes the database is listening on the same host, or with a Docker port
+// share.
+const DB_URL: &str = "mysql://dbuser:dbpassword@localhost:3306/dinnerlog";
+lazy_static! {
+    static ref DBPOOL: Pool =
+        Pool::new(DB_URL).expect("Cannot obtain a connection pool to the database.");
+}
+
 fn main() {
     // Fetch last happenings
-    // TODO get credentials from environment variables
-    // This command assumes the database is listening on the same host, or with a Docker port
-    // share.
-    let db_url = "mysql://dbuser:dbpassword@localhost:3306/dinnerlog";
-    let db_pool = Pool::new(db_url).expect("Cannot obtain a connection pool to the database.");
-    let mut db_conn = db_pool
+    let mut db_conn = DBPOOL
         .get_conn()
         .expect("Cannot obtain a connection to the database.");
+
     // DEV
     let happening_ids = db_conn
         .query_map(
             "SELECT id, date, name, comment, created_on, last_modified_on
-            FROM happening_happening
+            FROM happening
             ORDER BY created_on DESC
             LIMIT 0, 10",
             |(id, when, name, comment, created_on, lmo)| Happening {
@@ -75,11 +83,14 @@ fn main() {
         .child(TextView::new(
             "Press 'q' to exit. Press 'F1' to select the menu bar.",
         ))
-        .child(Button::new("Quit", |s| s.quit()))
-        // DEV
-        .child(DebugView::new());
+        .child(Button::new("Quit", |s| s.quit()));
 
-    siv.add_fullscreen_layer(page);
+    let layout = LinearLayout::horizontal()
+        .child(page)
+        // DEV
+        .child(Panel::new(DebugView::new()).title("Log"));
+
+    siv.add_fullscreen_layer(layout);
     // TODO center the layer
     siv.reposition_layer(LayerPosition::FromBack(0), XY::center());
 
@@ -101,6 +112,10 @@ fn main() {
     siv.add_global_callback(event::Key::F1, |s| s.select_menubar());
     siv.set_autohide_menu(false);
 
+    siv.add_global_callback('~', Cursive::toggle_debug_console);
+    cursive::logger::init();
+    log::set_max_level(LevelFilter::Warn);
+
     siv.run();
 }
 
@@ -110,15 +125,20 @@ fn add_happening(s: &mut Cursive) {
         Dialog::around(
             LinearLayout::vertical()
                 .child(TextView::new("Name"))
-                .child(EditView::new().max_content_width(100).with_name("h_name")),
+                .child(EditView::new().max_content_width(100).with_name("h_name"))
+                .child(TextView::new("Date (yyyy-mm-dd)"))
+                .child(EditView::new().max_content_width(10).with_name("h_date")),
         )
         .title("Add a happening")
         .button("Add", |s| {
             let name = s
                 .call_on_name("h_name", |view: &mut EditView| view.get_content())
                 .unwrap();
+            let date = s
+                .call_on_name("h_date", |view: &mut EditView| view.get_content())
+                .unwrap();
             // TODO add other fields.
-            insert_happening(&name);
+            insert_happening(&name, &date);
 
             // TODO inform about the success
             s.pop_layer();
@@ -129,6 +149,22 @@ fn add_happening(s: &mut Cursive) {
     );
 }
 
-fn insert_happening(name: &str) {
-    // TODO make the SQL request
+fn insert_happening(name: &str, date: &str) {
+    let mut db_conn = DBPOOL
+        .get_conn()
+        .expect("Cannot obtain a connection to the database.");
+
+    match db_conn.exec_drop(
+        r"INSERT INTO happening (id, name, date, created_on, last_modified_on)
+          VALUES (:id, :name, DATE(:date), NOW(), NOW())",
+        params! {
+            "id" => Uuid::new_v4().as_simple().to_string(),
+            name,
+            "date" => date,
+        },
+    ) {
+        // TODO handle errors in this function rather than log and exit.
+        Err(e) => error!("{}", e),
+        Ok(_) => (),
+    };
 }
