@@ -5,7 +5,7 @@ use cursive::traits::*;
 use cursive::view::Offset;
 use cursive::views::{
     Button, DebugView, Dialog, EditView, LayerPosition, LinearLayout, ListView, Panel, SelectView,
-    TextView,
+    TextArea, TextView,
 };
 use cursive::Cursive;
 use cursive::XY;
@@ -127,7 +127,9 @@ fn add_happening(s: &mut Cursive) {
                 .child(TextView::new("Name"))
                 .child(EditView::new().max_content_width(100).with_name("h_name"))
                 .child(TextView::new("Date (yyyy-mm-dd)"))
-                .child(EditView::new().max_content_width(10).with_name("h_date")),
+                .child(EditView::new().max_content_width(10).with_name("h_date"))
+                .child(TextView::new("Comment"))
+                .child(TextArea::new().min_height(3).fixed_width(30)),
         )
         .title("Add a happening")
         .button("Add", |s| {
