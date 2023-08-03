@@ -395,6 +395,7 @@ dependencies = [
  "num",
  "owning_ref",
  "time",
+ "toml",
  "unicode-segmentation",
  "unicode-width",
  "xi-unicode",

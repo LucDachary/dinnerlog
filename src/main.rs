@@ -74,6 +74,8 @@ fn main() {
     // Draw the TUI
     let mut siv = cursive::default();
 
+    siv.load_theme_file("assets/theme.toml").unwrap();
+
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('n', add_happening);
 
@@ -100,7 +102,7 @@ fn main() {
         // DEV
         .child(Panel::new(DebugView::new()).title("Log"));
 
-    siv.add_fullscreen_layer(layout);
+    siv.add_layer(layout);
     // TODO center the layer
     siv.reposition_layer(LayerPosition::FromBack(0), XY::center());
 
