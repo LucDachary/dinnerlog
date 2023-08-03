@@ -12,6 +12,16 @@ __TODO__
 * search (course, guest, date, etc.).
 
 # Database
+## Migrations
+This project supports a basic migration system. Pile up SQL files in `db_migrations/` and they will
+be run sequentially by running `make migrations`.
+This is designed to run fine on a pristine database. If you face any difficulty, wipe the database
+and run the command again.
+
+## Fixtures
+On the same model as migrations, you can run `make fixtures` to populate the database with fixtures
+defines in `db_fixtures/`.
+
 ## Backup
 Obviously the password is in the commandline here as an example. If your database remains local it's
 not a big deal, otherwise it should be typed afterwards.
