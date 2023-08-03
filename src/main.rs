@@ -14,8 +14,12 @@ use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
 use mysql::*;
+use std::time::SystemTime;
+use time::format_description::well_known::Rfc3339;
 use time::macros::date;
+use time::macros::format_description;
 use time::Date;
+use time::OffsetDateTime;
 use time::PrimitiveDateTime;
 use uuid::Uuid;
 
@@ -127,13 +131,24 @@ fn main() {
 
 /// Open a dialog with a Happening form.
 fn add_happening(s: &mut Cursive) {
+    let now = SystemTime::now();
+    // let now_str: OffsetDateTime = now.into().format(&Rfc3339);
+    let now_str = <SystemTime as Into<OffsetDateTime>>::into(now)
+        .format(format_description!("[year]-[month]-[day]"))
+        .unwrap();
+
     s.add_layer(
         Dialog::around(
             LinearLayout::vertical()
                 .child(TextView::new("Name"))
                 .child(EditView::new().max_content_width(100).with_name("h_name"))
                 .child(TextView::new("Date (yyyy-mm-dd)"))
-                .child(EditView::new().max_content_width(10).with_name("h_date"))
+                .child(
+                    EditView::new()
+                        .content(now_str)
+                        .max_content_width(10)
+                        .with_name("h_date"),
+                )
                 .child(TextView::new("Comment"))
                 .child(TextArea::new().min_height(3).fixed_width(30)),
         )
