@@ -4,7 +4,7 @@ use cursive::menu;
 use cursive::traits::*;
 use cursive::view::Offset;
 use cursive::views::{
-    Button, DebugView, Dialog, EditView, LayerPosition, LinearLayout, ListView, Panel, SelectView,
+    Button, DebugView, Dialog, DummyView, EditView, LayerPosition, LinearLayout, ListView, Panel,
     TextArea, TextView,
 };
 use cursive::Cursive;
@@ -83,11 +83,13 @@ fn main() {
 
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
+        .child(DummyView.fixed_height(1))
         .child(Panel::new(vhappenings).title("Last happenings"))
         .child(TextView::new(
             "Press 'q' to exit. Press 'F1' to select the menu bar.",
         ))
-        .child(Button::new("Quit", |s| s.quit()));
+        .child(Button::new("Quit", |s| s.quit()))
+        .full_screen();
 
     let layout = LinearLayout::horizontal()
         .child(page)
