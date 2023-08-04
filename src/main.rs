@@ -9,7 +9,7 @@ use cursive::views::{
 };
 use cursive::Cursive;
 use cursive::XY;
-use log::{debug, error, LevelFilter};
+use log::{debug, error, info, LevelFilter};
 use mysql::prelude::*;
 use mysql::Pool;
 use mysql::Value;
@@ -47,30 +47,6 @@ lazy_static! {
 }
 
 fn main() {
-    // Fetch last happenings
-    let mut db_conn = DBPOOL
-        .get_conn()
-        .expect("Cannot obtain a connection to the database.");
-
-    // DEV
-    let happening_ids = db_conn
-        .query_map(
-            "SELECT id, date, name, comment, created_on, last_modified_on
-            FROM happening
-            ORDER BY created_on DESC
-            LIMIT 0, 10",
-            |(id, when, name, comment, created_on, lmo)| Happening {
-                id: Uuid::parse_str(String::from_utf8(id).expect("Cannot decode UTF8.").as_str())
-                    .expect("Cannot decode UUID."),
-                when,
-                name,
-                comment,
-                created_on: created_on,
-                last_modified_on: lmo,
-            },
-        )
-        .expect("Cannot read the last happenings.");
-
     // Draw the TUI
     let mut siv = cursive::default();
 
@@ -80,27 +56,17 @@ fn main() {
     siv.add_global_callback('n', add_happening);
 
     let mut vhappenings = ListView::new();
-    for hid in happening_ids {
-        vhappenings.add_child(
-            format!("{} \u{2014}", hid.when.date()).as_str(),
-            TextView::new(format!("\u{201F}{}\u{201D}", hid.name).as_str()),
-        );
-    }
 
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
         .child(DummyView.fixed_height(1))
-        .child(Panel::new(vhappenings).title("Last happenings"))
+        .child(Panel::new(vhappenings.with_name("happenings")).title("Last happenings"))
         .child(TextView::new(
             "Press 'q' to exit. Press 'F1' to select the menu bar.",
         ))
-        .child(Button::new("Quit", |s| s.quit()))
-        .full_screen();
+        .child(Button::new("Quit", |s| s.quit()));
 
-    let layout = LinearLayout::horizontal()
-        .child(page)
-        // DEV
-        .child(Panel::new(DebugView::new()).title("Log"));
+    let layout = LinearLayout::horizontal().child(page);
 
     siv.add_layer(layout);
     // TODO center the layer
@@ -126,9 +92,50 @@ fn main() {
 
     siv.add_global_callback('~', Cursive::toggle_debug_console);
     cursive::logger::init();
-    log::set_max_level(LevelFilter::Warn);
+    log::set_max_level(LevelFilter::Info);
+
+    list_last_happenings(&mut siv);
 
     siv.run();
+}
+
+/// Fetch and list last happenings.
+fn list_last_happenings(s: &mut Cursive) {
+    // Fetch last happenings
+    let mut db_conn = DBPOOL
+        .get_conn()
+        .expect("Cannot obtain a connection to the database.");
+
+    // DEV
+    let happening_ids = db_conn
+        .query_map(
+            "SELECT id, date, name, comment, created_on, last_modified_on
+            FROM happening
+            ORDER BY created_on DESC
+            LIMIT 0, 10",
+            |(id, when, name, comment, created_on, lmo)| Happening {
+                id: Uuid::parse_str(String::from_utf8(id).expect("Cannot decode UTF8.").as_str())
+                    .expect("Cannot decode UUID."),
+                when,
+                name,
+                comment,
+                created_on: created_on,
+                last_modified_on: lmo,
+            },
+        )
+        .expect("Cannot read the last happenings.");
+    info!("Got last happenings data.");
+
+    s.call_on_name("happenings", |vhappenings: &mut ListView| {
+        info!("Got last happenings view.");
+        vhappenings.clear();
+        for hid in happening_ids {
+            vhappenings.add_child(
+                format!("{} \u{2014}", hid.when.date()).as_str(),
+                TextView::new(format!("\u{201F}{}\u{201D}", hid.name).as_str()),
+            );
+        }
+    });
 }
 
 /// Open a dialog with a Happening form.
@@ -167,6 +174,8 @@ fn add_happening(s: &mut Cursive) {
 
             // TODO inform about the success
             s.pop_layer();
+
+            list_last_happenings(s);
         })
         .button("Cancel", |s| {
             s.pop_layer();
