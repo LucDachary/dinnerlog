@@ -1,41 +1,23 @@
-use cursive::align::HAlign;
 use cursive::event;
 use cursive::menu;
 use cursive::traits::*;
-use cursive::view::Offset;
 use cursive::views::{
-    Button, DebugView, Dialog, DummyView, EditView, LayerPosition, LinearLayout, ListView, Panel,
-    TextArea, TextView,
+    Button, Dialog, DummyView, EditView, LayerPosition, LinearLayout, ListView, Panel, TextArea,
+    TextView,
 };
 use cursive::Cursive;
 use cursive::XY;
-use log::{debug, error, info, LevelFilter};
-use mysql::prelude::*;
+use log::{info, LevelFilter};
 use mysql::Pool;
-use mysql::Value;
-use mysql::*;
 use std::time::SystemTime;
-use time::format_description::well_known::Rfc3339;
-use time::macros::date;
 use time::macros::format_description;
-use time::Date;
 use time::OffsetDateTime;
-use time::PrimitiveDateTime;
-use uuid::Uuid;
 
 use sql::insert_happening;
 pub mod sql;
 
 #[macro_use]
 extern crate lazy_static;
-struct Happening {
-    id: Uuid,
-    when: PrimitiveDateTime,
-    name: String,
-    comment: Option<String>,
-    created_on: PrimitiveDateTime,
-    last_modified_on: PrimitiveDateTime,
-}
 
 // TODO get credentials from environment variables
 // This command assumes the database is listening on the same host, or with a Docker port
@@ -55,7 +37,7 @@ fn main() {
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('n', add_happening);
 
-    let mut vhappenings = ListView::new();
+    let vhappenings = ListView::new();
 
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
@@ -101,30 +83,7 @@ fn main() {
 
 /// Fetch and list last happenings.
 fn list_last_happenings(s: &mut Cursive) {
-    // Fetch last happenings
-    let mut db_conn = DBPOOL
-        .get_conn()
-        .expect("Cannot obtain a connection to the database.");
-
-    // DEV
-    let happening_ids = db_conn
-        .query_map(
-            "SELECT id, date, name, comment, created_on, last_modified_on
-            FROM happening
-            ORDER BY created_on DESC
-            LIMIT 0, 10",
-            |(id, when, name, comment, created_on, lmo)| Happening {
-                id: Uuid::parse_str(String::from_utf8(id).expect("Cannot decode UTF8.").as_str())
-                    .expect("Cannot decode UUID."),
-                when,
-                name,
-                comment,
-                created_on: created_on,
-                last_modified_on: lmo,
-            },
-        )
-        .expect("Cannot read the last happenings.");
-    info!("Got last happenings data.");
+    let happening_ids = sql::fetch_happenings(10);
 
     s.call_on_name("happenings", |vhappenings: &mut ListView| {
         info!("Got last happenings view.");
