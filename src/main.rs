@@ -2,7 +2,7 @@ use cursive::event;
 use cursive::menu;
 use cursive::traits::*;
 use cursive::views::{
-    Button, Dialog, DummyView, EditView, LayerPosition, LinearLayout, ListView, Panel, TextArea,
+    Button, Dialog, DummyView, EditView, LayerPosition, LinearLayout, Panel, SelectView, TextArea,
     TextView,
 };
 use cursive::Cursive;
@@ -37,7 +37,9 @@ fn main() {
     siv.add_global_callback('q', |s| s.quit());
     siv.add_global_callback('n', add_happening);
 
-    let vhappenings = ListView::new();
+    let vhappenings: SelectView<String> = SelectView::new().on_submit(|s, item: &String| {
+        edit_happening(s, item);
+    });
 
     let page = LinearLayout::vertical()
         .child(TextView::new("Dinner Log").center())
@@ -85,59 +87,84 @@ fn main() {
 fn list_last_happenings(s: &mut Cursive) {
     let happening_ids = sql::fetch_happenings(10);
 
-    s.call_on_name("happenings", |vhappenings: &mut ListView| {
+    s.call_on_name("happenings", |vhappenings: &mut SelectView| {
         info!("Got last happenings view.");
         vhappenings.clear();
         for hid in happening_ids {
-            vhappenings.add_child(
-                format!("{} \u{2014}", hid.when.date()).as_str(),
-                TextView::new(format!("\u{201F}{}\u{201D}", hid.name).as_str()),
+            vhappenings.add_item(
+                format!("{} \u{2014} \u{201F}{}\u{201D}", hid.when.date(), hid.name),
+                hid.id.to_string(),
             );
         }
     });
 }
 
+/// Open a dialog to edit the given happening.
+fn edit_happening(s: &mut Cursive, happening_id: &String) {
+    match sql::fetch_happening(happening_id) {
+        Some(happening) => {
+            s.add_layer(
+                Dialog::around(make_happening_form(Some(&happening)))
+                    .title("Edit")
+                    .button("Cancel", |s| {
+                        s.pop_layer();
+                    }),
+            );
+        }
+        None => s.add_layer(Dialog::info(
+            "Cannot find this item…  can't believe this is happening!",
+        )),
+    }
+}
+
 /// Open a dialog with a Happening form.
 fn add_happening(s: &mut Cursive) {
+    s.add_layer(
+        Dialog::around(make_happening_form(None))
+            .title("Add a happening")
+            .button("Add", |s| {
+                let name = s
+                    .call_on_name("h_name", |view: &mut EditView| view.get_content())
+                    .unwrap();
+                let date = s
+                    .call_on_name("h_date", |view: &mut EditView| view.get_content())
+                    .unwrap();
+                // TODO add other fields.
+                insert_happening(&name, &date);
+
+                // TODO inform about the success
+                s.pop_layer();
+
+                list_last_happenings(s);
+            })
+            .button("Cancel", |s| {
+                s.pop_layer();
+            }),
+    );
+}
+
+/// Build and return a form to create or edit a happening.
+fn make_happening_form(happening: Option<&sql::Happening>) -> LinearLayout {
     let now = SystemTime::now();
     // let now_str: OffsetDateTime = now.into().format(&Rfc3339);
     let now_str = <SystemTime as Into<OffsetDateTime>>::into(now)
         .format(format_description!("[year]-[month]-[day]"))
         .unwrap();
 
-    s.add_layer(
-        Dialog::around(
-            LinearLayout::vertical()
-                .child(TextView::new("Name"))
-                .child(EditView::new().max_content_width(100).with_name("h_name"))
-                .child(TextView::new("Date (yyyy-mm-dd)"))
-                .child(
-                    EditView::new()
-                        .content(now_str)
-                        .max_content_width(10)
-                        .with_name("h_date"),
-                )
-                .child(TextView::new("Comment"))
-                .child(TextArea::new().min_height(3).fixed_width(30)),
+    LinearLayout::vertical()
+        .child(TextView::new("Name"))
+        .child(EditView::new().max_content_width(100).with_name("h_name"))
+        .child(TextView::new("Date (yyyy-mm-dd)"))
+        .child(
+            EditView::new()
+                .content(match happening {
+                    // TODO use happening's date
+                    Some(_) => String::new(), // The happening already has its date.
+                    None => now_str,
+                })
+                .max_content_width(10)
+                .with_name("h_date"),
         )
-        .title("Add a happening")
-        .button("Add", |s| {
-            let name = s
-                .call_on_name("h_name", |view: &mut EditView| view.get_content())
-                .unwrap();
-            let date = s
-                .call_on_name("h_date", |view: &mut EditView| view.get_content())
-                .unwrap();
-            // TODO add other fields.
-            insert_happening(&name, &date);
-
-            // TODO inform about the success
-            s.pop_layer();
-
-            list_last_happenings(s);
-        })
-        .button("Cancel", |s| {
-            s.pop_layer();
-        }),
-    );
+        .child(TextView::new("Comment"))
+        .child(TextArea::new().min_height(3).fixed_width(30))
 }

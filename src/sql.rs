@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::DBPOOL;
 
 // Move into models.rs?
+#[derive(Clone)]
 pub struct Happening {
     pub id: Uuid,
     pub when: PrimitiveDateTime,
@@ -51,7 +52,7 @@ pub fn fetch_happenings(last: u8) -> Vec<Happening> {
             ),
             |(id, when, name, comment, created_on, lmo)| Happening {
                 id: Uuid::parse_str(String::from_utf8(id).expect("Cannot decode UTF8.").as_str())
-                    .expect("Cannot decode UUID."),
+                    .expect("Cannot decode this UUID."),
                 when,
                 name,
                 comment,
@@ -60,4 +61,38 @@ pub fn fetch_happenings(last: u8) -> Vec<Happening> {
             },
         )
         .expect("Cannot read the last happenings.")
+}
+
+pub fn fetch_happening(id: &String) -> Option<Happening> {
+    let mut db_conn = DBPOOL
+        .get_conn()
+        .expect("Cannot obtain a connection to the database.");
+
+    let rows = db_conn
+        .exec_map(
+            "SELECT id, date, name, comment, created_on, last_modified_on
+            FROM happening
+            WHERE id = ?",
+            (id.replace("-", ""),),
+            |row: Row| Happening {
+                id: Uuid::parse_str(
+                    String::from_utf8(row.get(0).unwrap())
+                        .expect("Cannot decode UTF8.")
+                        .as_str(),
+                )
+                .expect("Cannot decode this UUID."),
+                when: row.get(1).unwrap(),
+                name: row.get(2).unwrap(),
+                comment: row.get(3).unwrap(),
+                created_on: row.get(4).unwrap(),
+                last_modified_on: row.get(5).unwrap(),
+            },
+        )
+        .expect("Cannot fetch this happening.");
+
+    match rows.len() {
+        0 => None,
+        1 => Some(rows[0].clone()),
+        _ => panic!("Found more than 1 happening."),
+    }
 }
