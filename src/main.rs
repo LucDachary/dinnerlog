@@ -1,4 +1,5 @@
 use cursive::event;
+use cursive::event::{Event, Key};
 use cursive::menu;
 use cursive::traits::*;
 use cursive::views::{
@@ -79,6 +80,12 @@ fn main() {
     log::set_max_level(LevelFilter::Info);
 
     list_last_happenings(&mut siv);
+
+    // Vim-like navigation
+    siv.add_global_callback('j', |s| s.on_event(Event::Key(Key::Down)));
+    siv.add_global_callback('k', |s| s.on_event(Event::Key(Key::Up)));
+    siv.add_global_callback('h', |s| s.on_event(Event::Key(Key::Left)));
+    siv.add_global_callback('l', |s| s.on_event(Event::Key(Key::Right)));
 
     siv.run();
 }
