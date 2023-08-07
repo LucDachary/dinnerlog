@@ -8,11 +8,11 @@ use cursive::views::{
 };
 use cursive::Cursive;
 use cursive::XY;
-use log::{info, LevelFilter};
+use log::{info, trace, LevelFilter};
 use mysql::Pool;
 use std::time::SystemTime;
-use time::macros::format_description;
-use time::OffsetDateTime;
+use time::macros::{format_description, time};
+use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
 use sql::insert_happening;
 pub mod sql;
@@ -73,9 +73,16 @@ fn main() {
         );
 
     siv.add_global_callback(event::Key::F1, |s| s.select_menubar());
+    siv.add_global_callback('~', Cursive::toggle_debug_console);
+    siv.add_global_callback(Key::Esc, |s| {
+        s.pop_layer();
+        if s.screen().len() == 0 {
+            trace!("There are no more layers, exiting…");
+            s.quit();
+        }
+    });
     siv.set_autohide_menu(false);
 
-    siv.add_global_callback('~', Cursive::toggle_debug_console);
     cursive::logger::init();
     log::set_max_level(LevelFilter::Info);
 
@@ -86,6 +93,7 @@ fn main() {
     siv.add_global_callback('k', |s| s.on_event(Event::Key(Key::Up)));
     siv.add_global_callback('h', |s| s.on_event(Event::Key(Key::Left)));
     siv.add_global_callback('l', |s| s.on_event(Event::Key(Key::Right)));
+    siv.add_global_callback('G', |s| s.on_event(Event::Key(Key::End)));
 
     siv.run();
 }
@@ -113,13 +121,44 @@ fn edit_happening(s: &mut Cursive, happening_id: &String) {
             s.add_layer(
                 Dialog::around(make_happening_form(Some(&happening)))
                     .title("Edit")
+                    .button("Save", move |s| {
+                        let name: String = s
+                            .call_on_name("h_name", |view: &mut EditView| view.get_content())
+                            .unwrap()
+                            .to_string();
+                        let date: String = s
+                            .call_on_name("h_date", |view: &mut EditView| view.get_content())
+                            .unwrap()
+                            .to_string();
+
+                        let mut new_happening = happening.clone();
+                        new_happening.name = name;
+                        new_happening.when = PrimitiveDateTime::new(
+                            Date::parse(date.as_str(), format_description!("[year]-[month]-[day]"))
+                                .unwrap(),
+                            time!(0:00),
+                        );
+
+                        let result = sql::update_happening(&new_happening);
+                        if result.is_err() {
+                            s.add_layer(Dialog::info(format!(
+                                "Failed to update the entry: {}.",
+                                result.unwrap_err()
+                            )));
+                        } else {
+                            // info!("Happening {happening_id} has been updated.");
+                            list_last_happenings(s);
+                            s.pop_layer();
+                        }
+                    })
                     .button("Cancel", |s| {
                         s.pop_layer();
                     }),
+                // TODO add a handler to UPDATE the Happening.
             );
         }
         None => s.add_layer(Dialog::info(
-            "Cannot find this item…  can't believe this is happening!",
+            "Cannot find this item. I cannot believe this is… happening!",
         )),
     }
 }
@@ -160,18 +199,36 @@ fn make_happening_form(happening: Option<&sql::Happening>) -> LinearLayout {
 
     LinearLayout::vertical()
         .child(TextView::new("Name"))
-        .child(EditView::new().max_content_width(100).with_name("h_name"))
+        .child(
+            EditView::new()
+                .content(match happening {
+                    Some(h) => h.name.as_str(),
+                    None => "",
+                })
+                .max_content_width(100)
+                .with_name("h_name"),
+        )
         .child(TextView::new("Date (yyyy-mm-dd)"))
         .child(
             EditView::new()
                 .content(match happening {
-                    // TODO use happening's date
-                    Some(_) => String::new(), // The happening already has its date.
+                    Some(happening) => happening
+                        .when
+                        .format(format_description!("[year]-[month]-[day]"))
+                        .unwrap(),
                     None => now_str,
                 })
                 .max_content_width(10)
                 .with_name("h_date"),
         )
         .child(TextView::new("Comment"))
-        .child(TextArea::new().min_height(3).fixed_width(30))
+        .child(
+            TextArea::new()
+                .content(match happening {
+                    Some(h) => h.comment.clone().unwrap_or(String::new()),
+                    None => String::new(),
+                })
+                .min_height(3)
+                .fixed_width(30),
+        )
 }

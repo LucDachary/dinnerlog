@@ -37,6 +37,23 @@ pub fn insert_happening(name: &str, date: &str) {
     };
 }
 
+pub fn update_happening(happening: &Happening) -> Result<()> {
+    let mut db_conn = DBPOOL
+        .get_conn()
+        .expect("Cannot obtain a connection to the database.");
+
+    db_conn.exec_drop(
+        "UPDATE happening
+    SET name = :name, date = :date
+    WHERE id = :id",
+        params! {
+        "id" => happening.id.to_string().replace("-", ""),
+        "name" => happening.name.clone(),
+        "date" => happening.when,
+        },
+    )
+}
+
 pub fn fetch_happenings(last: u8) -> Vec<Happening> {
     let mut db_conn = DBPOOL
         .get_conn()
@@ -47,7 +64,7 @@ pub fn fetch_happenings(last: u8) -> Vec<Happening> {
             format!(
                 "SELECT id, date, name, comment, created_on, last_modified_on
             FROM happening
-            ORDER BY created_on DESC
+            ORDER BY date DESC
             LIMIT 0, {last}"
             ),
             |(id, when, name, comment, created_on, lmo)| Happening {
