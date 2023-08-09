@@ -17,18 +17,19 @@ pub struct Happening {
     pub last_modified_on: PrimitiveDateTime,
 }
 
-pub fn insert_happening(name: &str, date: &str) {
+pub fn insert_happening(name: &str, date: &str, comment: Option<String>) {
     let mut db_conn = DBPOOL
         .get_conn()
         .expect("Cannot obtain a connection to the database.");
 
     match db_conn.exec_drop(
-        r"INSERT INTO happening (id, name, date, created_on, last_modified_on)
-          VALUES (:id, :name, DATE(:date), NOW(), NOW())",
+        r"INSERT INTO happening (id, name, date, comment, created_on, last_modified_on)
+          VALUES (:id, :name, DATE(:date), :comment, NOW(), NOW())",
         params! {
             "id" => Uuid::new_v4().as_simple().to_string(),
             name,
-            "date" => date,
+            date,
+            "comment" => comment.unwrap_or_default().as_str(),
         },
     ) {
         // TODO handle errors in this function rather than log and exit.
@@ -44,12 +45,13 @@ pub fn update_happening(happening: &Happening) -> Result<()> {
 
     db_conn.exec_drop(
         "UPDATE happening
-    SET name = :name, date = :date
+    SET name = :name, date = :date, comment = :comment
     WHERE id = :id",
         params! {
         "id" => happening.id.to_string().replace("-", ""),
         "name" => happening.name.clone(),
         "date" => happening.when,
+        "comment" => happening.comment.clone().unwrap_or_default(),
         },
     )
 }

@@ -130,6 +130,11 @@ fn edit_happening(s: &mut Cursive, happening_id: &String) {
                             .call_on_name("h_date", |view: &mut EditView| view.get_content())
                             .unwrap()
                             .to_string();
+                        let comment: String = s
+                            .call_on_name("h_comment", |view: &mut TextArea| {
+                                String::from(view.get_content())
+                            })
+                            .expect("Cannot find the comment's input.");
 
                         let mut new_happening = happening.clone();
                         new_happening.name = name;
@@ -138,6 +143,7 @@ fn edit_happening(s: &mut Cursive, happening_id: &String) {
                                 .unwrap(),
                             time!(0:00),
                         );
+                        new_happening.comment = Some(comment);
 
                         let result = sql::update_happening(&new_happening);
                         if result.is_err() {
@@ -175,8 +181,11 @@ fn add_happening(s: &mut Cursive) {
                 let date = s
                     .call_on_name("h_date", |view: &mut EditView| view.get_content())
                     .unwrap();
+                let comment: Option<String> = s.call_on_name("h_comment", |view: &mut TextArea| {
+                    String::from(view.get_content())
+                });
                 // TODO add other fields.
-                insert_happening(&name, &date);
+                insert_happening(&name, &date, comment);
 
                 // TODO inform about the success
                 s.pop_layer();
@@ -228,7 +237,11 @@ fn make_happening_form(happening: Option<&sql::Happening>) -> LinearLayout {
                     Some(h) => h.comment.clone().unwrap_or(String::new()),
                     None => String::new(),
                 })
+                // Here we still have a TextArea
+                .with_name("h_comment")
+                // Here we have a NamedView
                 .min_height(3)
+                // Here we have a ResizedView
                 .fixed_width(30),
         )
 }
