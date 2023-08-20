@@ -9,6 +9,9 @@ shell:
 dbshell:
 	docker-compose exec db mariadb -u dbuser -pdbpassword dinnerlog
 
+dbshellroot:
+	docker-compose exec db mariadb -u root -pdev-db-root-password dinnerlog
+
 migrations:
 	# Run the db_migrations/*.sql files sequentially.
 	# For now it's designed to be run once from a pristine database.
